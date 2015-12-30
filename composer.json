@@ -1,0 +1,24 @@
+{
+    "name": "x3mcode/guzzlehttp/cookie-auth-subscriber",
+    "description": "Guzzle Cookie Auth subscriber",
+    "homepage": "http://guzzlephp.org/",
+    "keywords": ["cookie", "auth", "guzzle"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "João Gomes",
+            "email": "x3mcode@gmail.com",
+            "homepage": "https://github.com/Gomes81"
+        }
+    ],
+    "require": {
+        "php": ">=5.5.0",
+        "guzzlehttp/guzzle": "~6.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~4.0"
+    },
+    "autoload": {
+        "psr-4": { "x3mcode\\GuzzleHttp\\Subscriber\\": "src" }
+    }
+}
