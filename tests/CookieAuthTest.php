@@ -1,6 +1,6 @@
 <?php
 
-namespace x3mcode\GuzzleHttp\Tests\CookieAuth;
+namespace gomes81\GuzzleHttp\Tests\CookieAuth;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
@@ -9,7 +9,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Promise\Promise;
 use GuzzleHttp\Cookie\SetCookie;
-use x3mcode\GuzzleHttp\Subscriber\CookieAuth;
+use gomes81\GuzzleHttp\Subscriber\CookieAuth;
 
 class CookieAuthTest extends \PHPUnit_Framework_TestCase
 {
