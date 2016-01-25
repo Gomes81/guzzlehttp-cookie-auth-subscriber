@@ -1,6 +1,6 @@
 <?php
 
-namespace x3mcode\GuzzleHttp\Subscriber;
+namespace gomes81\GuzzleHttp\Subscriber;
 
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
