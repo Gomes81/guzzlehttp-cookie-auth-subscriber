@@ -1,7 +1,7 @@
 {
-    "name": "x3mcode/guzzlehttp/cookie-auth-subscriber",
+    "name": "gomes81/guzzlehttp-cookie-auth-subscriber",
     "description": "Guzzle Cookie Auth subscriber",
-    "homepage": "http://guzzlephp.org/",
+    "homepage": "https://github.com/gomes81/guzzlehttp-cookie-auth-subscriber/",
     "keywords": ["cookie", "auth", "guzzle"],
     "license": "MIT",
     "authors": [
@@ -19,6 +19,6 @@
         "phpunit/phpunit": "~4.0"
     },
     "autoload": {
-        "psr-4": { "x3mcode\\GuzzleHttp\\Subscriber\\": "src" }
+        "psr-4": { "gomes81\\GuzzleHttp\\Subscriber\\": "src" }
     }
 }
