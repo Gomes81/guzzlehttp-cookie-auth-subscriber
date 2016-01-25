@@ -17,7 +17,7 @@ composer.json:
 
     {
         "require": {
-            "gomes81/guzzlehttp-cookie-auth-subscriber": "1.0.*"
+            "gomes81/guzzlehttp-cookie-auth-subscriber": "0.1.*"
         }
     }
 
