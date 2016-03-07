@@ -34,6 +34,13 @@ class CookieAuth
     protected $coockieJar;
 
     /**
+     * Flag that tells if the login was successfully made
+     *
+     * @var boolean
+     */
+    protected $loginMade = false;
+
+    /**
      * Create a new CookieAuth plugin.
      *
      * @param string $uri Login url
@@ -54,14 +61,17 @@ class CookieAuth
                 if (is_string($cookies)) {
                     $this->coockieJar->setCookie(
                         SetCookie::fromString($cookies));
+                    $this->loginMade = true;
                 } else if (is_array($cookies) || $cookies instanceof \Traversable) {
                     foreach ($cookies as $cookie) {
                         if (is_string($cookie)) {
-                            $this->coockieJar->setCookie(SetCookie::fromString($cookie));
+                            $this->coockieJar->setCookie(
+                                SetCookie::fromString($cookie));
                         } else if (is_array($cookie)) {
                             $this->coockieJar->setCookie(new SetCookie($cookie));
                         }
                     }
+                    $this->loginMade = true;
                 }
             }
         }
@@ -98,7 +108,7 @@ class CookieAuth
 
     /**
      * Inject the cookie in the request
-     * 
+     *
      * @param RequestInterface $request The request
      * @param array $options Guzzle options array
      * @return RequestInterface The changed request
@@ -112,13 +122,13 @@ class CookieAuth
             }
         }
 
-        $cookieJar = $this->getCookieJar($base_uri);
+        $cookieJar = $this->getCookieJar($options, $base_uri);
         return $cookieJar->withCookieHeader($request);
     }
 
     /**
      * Update the cookie jar with the cookie received from the server
-     * 
+     *
      * @param RequestInterface $request Request object
      * @param ResponseInterface $response Response object
      * @return ResponseInterface Response object
@@ -136,10 +146,14 @@ class CookieAuth
      * @param string|UriInterface $base_uri Optional base uri
      * @return CookieJar The cookie jar
      */
-    public function getCookieJar($base_uri = null)
+    public function getCookieJar(array &$options, $base_uri = null)
     {
-        if ($this->coockieJar->count() <= 0) {
-            $this->obtainCookies($base_uri);
+        if ($this->coockieJar->count() <= 0 || !$this->loginMade) {
+            $this->obtainCookies($options, $base_uri);
+        }
+
+        if (isset($options['auth-cookie'])) {
+            unset($options['auth-cookie']);
         }
 
         return $this->coockieJar;
@@ -152,25 +166,36 @@ class CookieAuth
      * @param string|UriInterface $base_uri Optional base uri
      * @return void it only chnages the class var
      */
-    protected function obtainCookies($base_uri = null)
+    protected function obtainCookies(array &$options, $base_uri = null)
     {
         $client = new Client();
 
-        $options = [
+        $loginOptions = [
             'allow_redirects' => false,
             'cookies' => $this->coockieJar
         ];
 
         if (!is_null($base_uri)) {
-            $options['base_uri'] = $base_uri;
+            $loginOptions['base_uri'] = $base_uri;
         }
 
         if ($this->config['method'] === 'POST') {
-            $options['form_params'] = $this->config['fields'];
+            $loginOptions['form_params'] = $this->config['fields'];
         } else if ($this->config['method'] === 'GET') {
-            $options['query'] = $this->config['fields'];
+            $loginOptions['query'] = $this->config['fields'];
         }
 
-        $client->request($this->config['method'], $this->config['uri'], $options);
+        if (isset($options['auth-cookie']['onBeforeLogin'])) {
+            $closer       = $options['auth-cookie']['onBeforeLogin'];
+            $loginOptions = $closer($loginOptions);
+            if (false === $loginOptions) {
+                return;
+            }
+        }
+
+        $client->request($this->config['method'], $this->config['uri'],
+            $loginOptions);
+
+        $this->loginMade = true;
     }
 }

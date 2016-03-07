@@ -183,6 +183,7 @@ class CookieAuthTest extends \PHPUnit_Framework_TestCase
             'password' => 'pass',
             'sessionToken' => 'abc123',
         );
+        $options = array();
 
         // middleware
         $m = new CookieAuth($uri, $fields, $urlMethod);
@@ -192,7 +193,7 @@ class CookieAuthTest extends \PHPUnit_Framework_TestCase
         $method = $class->getMethod('obtainCookies');
         $method->setAccessible(true);
 
-        $method->invokeArgs($m, array());
+        $method->invokeArgs($m, array(&$options));
 
         $property  = $class->getProperty('coockieJar');
         $property->setAccessible(true);
