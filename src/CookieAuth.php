@@ -182,7 +182,8 @@ class CookieAuth
         if ($this->config['method'] === 'POST') {
             $loginOptions['form_params'] = $this->config['fields'];
         } else if ($this->config['method'] === 'GET') {
-            $loginOptions['query'] = $this->config['fields'];
+            $loginOptions['query'] = !is_array($this->config['fields']) ? (array) $this->config['fields']
+                    : $this->config['fields'];
         }
 
         if (isset($options['auth-cookie']['onBeforeLogin'])) {
