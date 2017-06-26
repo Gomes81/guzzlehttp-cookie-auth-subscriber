@@ -43,7 +43,7 @@ Here's an example showing how to send an authenticated request:
             'password'    => 'my_password',
             'other_field' => 'my_field_value'
         ],
-        'POST',// GET, POST or JSON (will send a POST request with fields as a JSON encoded string)
+        'POST',// GET, POST or JSON (will JSON encode fields array and send it inside the POST request body)
         'you can also pass a cookie string to use in here');
     $stack->push($middleware);
 
@@ -74,7 +74,7 @@ the client by extending the array you feed to ``new Client`` with auth => cookie
             'username'    => 'my_username',
             'password'    => 'my_password',
             'other_field' => 'my_field_value'],
-        'POST',// GET, POST or JSON (will send a POST request with fields as a JSON encoded string)
+        'POST',// GET, POST or JSON (will JSON encode fields array and send it inside the POST request body)
         'you can also pass a cookie string to use in here');
     $stack->push($middleware);
 
@@ -86,3 +86,24 @@ the client by extending the array you feed to ``new Client`` with auth => cookie
 
     // Now you don't need to add the auth parameter
     $res = $client->get('statuses/home_timeline.json');
+
+You can also save cookies to a file by passing a FileCookieJar object instance
+in the forth parameter.
+
+.. code-block:: php
+
+    use GuzzleHttp\Client;
+    use GuzzleHttp\HandlerStack;
+    use GuzzleHttp\Cookie\FileCookieJar;
+    use gomes81\GuzzleHttp\Subscriber\CookieAuth;
+
+    $stack = HandlerStack::create();
+
+    $middleware = new CookieAuth(
+        '/login_simple_url_or_path', [
+            'username'    => 'my_username',
+            'password'    => 'my_password',
+            'other_field' => 'my_field_value'],
+        'POST',// GET, POST or JSON (will JSON encode fields array and send it inside the POST request body)
+        new FileCookieJar('./cookies_folder/cookie_file_name', true));
+    $stack->push($middleware);
