@@ -48,7 +48,7 @@ class CookieAuth
      * @param array|\Traversable $fields Array containing all fields that should
      * be send upon login, where the key is the field name and the value is the
      * field value
-     * @param string $method Resquest method POST or GET
+     * @param string $method Request method POST or GET
      * @param string|array|\Traversable|CookieJarInterface $cookies
      */
     public function __construct($uri, $fields, $method = 'POST', $cookies = null)
@@ -142,7 +142,7 @@ class CookieAuth
     }
 
     /**
-     * Get cookie jar, hidratates one if it is empty
+     * Get cookie jar, hydrates one if it is empty
      *
      * @param string|UriInterface $base_uri Optional base uri
      * @return CookieJar The cookie jar
@@ -162,10 +162,10 @@ class CookieAuth
 
     /**
      * Hydrates a cookie jar.
-     * Do not invoke this function if youd don't know what you're doing
+     * Do not invoke this function if you don't know what you're doing
      *
-     * @param string|UriInterface $base_uri Optional base uri
-     * @return void it only chnages the class var
+     * @param string|UriInterface $base_uri Optional base URI
+     * @return void it only changes the class variable
      */
     protected function obtainCookies(array &$options, $base_uri = null)
     {
