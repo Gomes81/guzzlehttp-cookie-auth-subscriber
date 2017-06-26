@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\UriInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
+use GuzzleHttp\Cookie\CookieJarInterface;
 use GuzzleHttp\Cookie\SetCookie;
 
 /**
@@ -29,7 +30,7 @@ class CookieAuth
     /**
      * Jar that holds the collected cookies
      *
-     * @var CookieJar
+     * @var CookieJarInterface
      */
     protected $coockieJar;
 
@@ -48,11 +49,11 @@ class CookieAuth
      * be send upon login, where the key is the field name and the value is the
      * field value
      * @param string $method Resquest method POST or GET
-     * @param string|array|\Traversable|CookieJar $cookies
+     * @param string|array|\Traversable|CookieJarInterface $cookies
      */
     public function __construct($uri, $fields, $method = 'POST', $cookies = null)
     {
-        if ($cookies instanceof CookieJar) {
+        if ($cookies instanceof CookieJarInterface) {
             $this->coockieJar = $cookies;
         } else {
             $this->coockieJar = new CookieJar();
