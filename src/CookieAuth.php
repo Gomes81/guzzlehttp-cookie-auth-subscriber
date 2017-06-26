@@ -179,8 +179,14 @@ class CookieAuth
             $loginOptions['base_uri'] = $base_uri;
         }
 
+        $method = 'GET';
         if ($this->config['method'] === 'POST') {
             $loginOptions['form_params'] = $this->config['fields'];
+            $method                      = 'POST';
+        } else if ($this->config['method'] === 'JSON') {
+            $loginOptions['body']                    = json_encode($this->config['fields']);
+            $loginOptions['headers']['Content-Type'] = 'application/json';
+            $method                                  = 'POST';
         } else if ($this->config['method'] === 'GET') {
             $loginOptions['query'] = !is_array($this->config['fields']) ? (array) $this->config['fields']
                     : $this->config['fields'];
@@ -194,8 +200,7 @@ class CookieAuth
             }
         }
 
-        $client->request($this->config['method'], $this->config['uri'],
-            $loginOptions);
+        $client->request($method, $this->config['uri'], $loginOptions);
 
         $this->loginMade = true;
     }

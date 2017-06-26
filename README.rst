@@ -43,7 +43,7 @@ Here's an example showing how to send an authenticated request:
             'password'    => 'my_password',
             'other_field' => 'my_field_value'
         ],
-        'POST',
+        'POST',// GET, POST or JSON (will send a POST request with fields as a JSON encoded string)
         'you can also pass a cookie string to use in here');
     $stack->push($middleware);
 
@@ -74,7 +74,7 @@ the client by extending the array you feed to ``new Client`` with auth => cookie
             'username'    => 'my_username',
             'password'    => 'my_password',
             'other_field' => 'my_field_value'],
-        'POST',
+        'POST',// GET, POST or JSON (will send a POST request with fields as a JSON encoded string)
         'you can also pass a cookie string to use in here');
     $stack->push($middleware);
 
