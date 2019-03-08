@@ -172,6 +172,7 @@ class CookieAuth
         $client = new Client();
 
         $loginOptions = [
+            'debug' => isset($options['debug']) && $options['debug'] ? true : false,
             'allow_redirects' => false,
             'cookies' => $this->coockieJar
         ];
