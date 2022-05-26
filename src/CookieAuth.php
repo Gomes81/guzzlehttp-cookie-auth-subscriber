@@ -32,7 +32,7 @@ class CookieAuth
      *
      * @var CookieJarInterface
      */
-    protected $coockieJar;
+    protected $cookieJar;
 
     /**
      * Flag that tells if the login was successfully made
@@ -40,6 +40,7 @@ class CookieAuth
      * @var boolean
      */
     protected $loginMade = false;
+
 
     /**
      * Create a new CookieAuth plugin.
@@ -49,31 +50,18 @@ class CookieAuth
      * be send upon login, where the key is the field name and the value is the
      * field value
      * @param string $method Request method POST or GET
-     * @param string|array|\Traversable|CookieJarInterface $cookies
+     * @param \Traversable|string|string[]|SetCookie|SetCookie[]|CookieJarInterface|null $cookies
      */
     public function __construct($uri, $fields, $method = 'POST', $cookies = null)
     {
         if ($cookies instanceof CookieJarInterface) {
-            $this->coockieJar = $cookies;
+            $this->cookieJar = $cookies;
         } else {
-            $this->coockieJar = new CookieJar();
+            $this->cookieJar = new CookieJar();
+            $this->parseCookieData($this->cookieJar, $cookies);
 
-            if (!is_null($cookies)) {
-                if (is_string($cookies)) {
-                    $this->coockieJar->setCookie(
-                        SetCookie::fromString($cookies));
-                    $this->loginMade = true;
-                } else if (is_array($cookies) || $cookies instanceof \Traversable) {
-                    foreach ($cookies as $cookie) {
-                        if (is_string($cookie)) {
-                            $this->coockieJar->setCookie(
-                                SetCookie::fromString($cookie));
-                        } else if (is_array($cookie)) {
-                            $this->coockieJar->setCookie(new SetCookie($cookie));
-                        }
-                    }
-                    $this->loginMade = true;
-                }
+            if ($this->cookieJar->count() > 0) {
+                $this->loginMade = true;
             }
         }
 
@@ -98,33 +86,13 @@ class CookieAuth
                 // do some magic :)
                 $request = $this->onBeforeSend($request, $options);
                 return $handler($request, $options)
-                        ->then(function ($response) use ($request) {
-                            return $this->onReceive($request, $response);
-                        });
+                    ->then(function ($response) use ($request) {
+                        return $this->onReceive($request, $response);
+                    });
             }
 
             return $handler($request, $options);
         };
-    }
-
-    /**
-     * Inject the cookie in the request
-     *
-     * @param RequestInterface $request The request
-     * @param array $options Guzzle options array
-     * @return RequestInterface The changed request
-     */
-    private function onBeforeSend(RequestInterface $request, array &$options)
-    {
-        $base_uri = null;
-        if (isset($options['base_uri']) && $options['base_uri']) {
-            if ($options['base_uri'] instanceof UriInterface) {
-                $base_uri = $options['base_uri'];
-            }
-        }
-
-        $cookieJar = $this->getCookieJar($options, $base_uri);
-        return $cookieJar->withCookieHeader($request);
     }
 
     /**
@@ -134,10 +102,11 @@ class CookieAuth
      * @param ResponseInterface $response Response object
      * @return ResponseInterface Response object
      */
-    public function onReceive(RequestInterface $request,
-                              ResponseInterface $response)
-    {
-        $this->coockieJar->extractCookies($request, $response);
+    public function onReceive(
+        RequestInterface $request,
+        ResponseInterface $response
+    ) {
+        $this->cookieJar->extractCookies($request, $response);
         return $response;
     }
 
@@ -149,7 +118,7 @@ class CookieAuth
      */
     public function getCookieJar(array &$options, $base_uri = null)
     {
-        if ($this->coockieJar->count() <= 0 || !$this->loginMade) {
+        if ($this->cookieJar->count() <= 0 || !$this->loginMade) {
             $this->obtainCookies($options, $base_uri);
         }
 
@@ -157,7 +126,24 @@ class CookieAuth
             unset($options['auth-cookie']);
         }
 
-        return $this->coockieJar;
+        return $this->cookieJar;
+    }
+
+    /**
+     * Inject the cookie in the request
+     *
+     * @param RequestInterface $request The request
+     * @param array $options Guzzle options array
+     * @return RequestInterface The changed request
+     */
+    protected function onBeforeSend(RequestInterface $request, array &$options)
+    {
+        $base_uri = null;
+        if (!empty($options['base_uri']) && $options['base_uri'] instanceof UriInterface) {
+            $base_uri = $options['base_uri'];
+        }
+
+        return $this->getCookieJar($options, $base_uri)->withCookieHeader($request);
     }
 
     /**
@@ -172,9 +158,9 @@ class CookieAuth
         $client = new Client();
 
         $loginOptions = [
-            'debug' => isset($options['debug']) && $options['debug'] ? true : false,
+            'debug'           => isset($options['debug']) && $options['debug'] ? true : false,
             'allow_redirects' => false,
-            'cookies' => $this->coockieJar
+            'cookies'         => $this->cookieJar
         ];
 
         if (!is_null($base_uri)) {
@@ -185,13 +171,13 @@ class CookieAuth
         if ($this->config['method'] === 'POST') {
             $loginOptions['form_params'] = $this->config['fields'];
             $method                      = 'POST';
-        } else if ($this->config['method'] === 'JSON') {
+        } elseif ($this->config['method'] === 'JSON') {
             $loginOptions['body']                    = json_encode($this->config['fields']);
             $loginOptions['headers']['Content-Type'] = 'application/json';
             $method                                  = 'POST';
-        } else if ($this->config['method'] === 'GET') {
+        } elseif ($this->config['method'] === 'GET') {
             $loginOptions['query'] = !is_array($this->config['fields']) ? (array) $this->config['fields']
-                    : $this->config['fields'];
+                : $this->config['fields'];
         }
 
         if (isset($options['auth-cookie']['onBeforeLogin'])) {
@@ -205,5 +191,29 @@ class CookieAuth
         $client->request($method, $this->config['uri'], $loginOptions);
 
         $this->loginMade = true;
+    }
+
+    /**
+     * Parse cookie data and save in the container
+     *
+     * @param CookieJarInterface                                 $container  Cookie container
+     * @param \Traversable|string|string[]|SetCookie|SetCookie[] $cookies    Mixed cookie data
+     * @return CookieJarInterface
+     */
+    protected function parseCookieData(CookieJarInterface $container, $cookies): CookieJarInterface
+    {
+        if ($cookies instanceof SetCookie) {
+            $container->setCookie($cookies);
+        } elseif (is_string($cookies)) {
+            $container->setCookie(
+                SetCookie::fromString($cookies)
+            );
+        } elseif (is_array($cookies) || $cookies instanceof \Traversable) {
+            foreach ($cookies as $cookie) {
+                $this->parseCookieData($container, $cookie);
+            }
+        }
+
+        return $container;
     }
 }
