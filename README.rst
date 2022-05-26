@@ -32,7 +32,7 @@ Here's an example showing how to send an authenticated request:
 
     use GuzzleHttp\Client;
     use GuzzleHttp\HandlerStack;
-    use gomes81\GuzzleHttp\Subscriber\CookieAuth;
+    use Gomes81\GuzzleHttp\Subscriber\CookieAuth;
 
     $stack = HandlerStack::create();
 
@@ -65,7 +65,7 @@ the client by extending the array you feed to ``new Client`` with auth => cookie
 
     use GuzzleHttp\Client;
     use GuzzleHttp\HandlerStack;
-    use gomes81\GuzzleHttp\Subscriber\CookieAuth;
+    use Gomes81\GuzzleHttp\Subscriber\CookieAuth;
 
     $stack = HandlerStack::create();
 
@@ -95,7 +95,7 @@ in the forth parameter.
     use GuzzleHttp\Client;
     use GuzzleHttp\HandlerStack;
     use GuzzleHttp\Cookie\FileCookieJar;
-    use gomes81\GuzzleHttp\Subscriber\CookieAuth;
+    use Gomes81\GuzzleHttp\Subscriber\CookieAuth;
 
     $stack = HandlerStack::create();
 

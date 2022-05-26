@@ -1,6 +1,6 @@
 <?php
 
-namespace gomes81\GuzzleHttp\Tests\CookieAuth;
+namespace Gomes81\GuzzleHttp\Tests\CookieAuth;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
@@ -9,48 +9,76 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Middleware;
 use GuzzleHttp\Promise\Promise;
 use GuzzleHttp\Cookie\SetCookie;
-use gomes81\GuzzleHttp\Subscriber\CookieAuth;
+use Gomes81\GuzzleHttp\Subscriber\CookieAuth;
+use GuzzleHttp\Cookie\CookieJar;
 
 class CookieAuthTest extends \PHPUnit_Framework_TestCase
 {
-    private $config = [
-        'uri' => 'http://httpbin.org/get',
-        'fields' => array('user' => 'John Doe', 'password' => 'pass'),
-        'method' => 'POST',
-        'cookies' => 'sessionToken=abc123; Domain=.httpbin.org; Path=/; Expires=Wed, 09 Jun 2021 10:18:14 GMT'
-    ];
+    /**
+     * @var \stdClass
+     */
+    private $config;
 
-    public function testAcceptsConfigurationData()
+    /**
+     * @var CookieAuth
+     */
+    private $configuredInstance = null;
+
+
+    protected function setUp(): void
     {
-        $p = new CookieAuth($this->config['uri'], $this->config['fields'],
-            $this->config['method'], $this->config['cookies']);
+        $cookieExpiration = new \Datetime('+2 hours');
+        $cookieExpiration->setTimezone(new \DateTimeZone('GMT'));
+        $this->config = (object) [
+            'uri'     => 'http://httpbin.org/get',
+            'fields'  => (object) [
+                'user'     => 'John Doe',
+                'password' => 'pass'
+            ],
+            'method'  => 'POST',
+            'cookie'  => (object) [
+                'Name'    => 'sessionToken',
+                'Value'   => 'abc123',
+                'Expires' => $cookieExpiration,
+                'parts' => [
+                    // 'sessionToken=abc123',
+                    'Domain=.httpbin.org',
+                    'Path=/',
+                    'Expires=' . $cookieExpiration->format('D, d M Y H:i:s e'),
+                ],
+                'string' => '',
+                'data'   => null,
+            ],
+        ];
 
-        // Access the config object
-        $class    = new \ReflectionClass($p);
-        $property = $class->getProperty('config');
-        $property->setAccessible(true);
-        $config   = $property->getValue($p);
+        array_unshift($this->config->cookie->parts, sprintf('%s=%s', $this->config->cookie->Name, $this->config->cookie->Value));
+        $this->config->cookie->string = implode('; ', $this->config->cookie->parts);
+        $this->config->cookie->data = SetCookie::fromString($this->config->cookie->string);
 
-        $property2      = $class->getProperty('coockieJar');
-        $property2->setAccessible(true);
-        $coockieJar     = $property2->getValue($p);
-        $expectedCookie = array(SetCookie::fromString($this->config['cookies'])->toArray());
+        $this->configuredInstance = $this->getNewInstance($this->config->cookie->string);
+    }
 
-        $this->assertEquals($this->config['uri'], $config['uri']);
-        $this->assertEquals($this->config['fields'], $config['fields']);
-        $this->assertEquals($this->config['method'], $config['method']);
-        $this->assertInstanceOf('\\GuzzleHttp\\Cookie\\CookieJar', $coockieJar);
-        $this->assertEquals($expectedCookie, $coockieJar->toArray());
+    public function testAcceptsConfiguration()
+    {
+        $possibilities = [
+            new CookieJar(),
+            null, // empt
+            $this->config->cookie->string, // strin
+            [$this->config->cookie->string], // string[
+            SetCookie::fromString($this->config->cookie->string), // SetCooki
+            [SetCookie::fromString($this->config->cookie->string)], // SetCookie[]
+        ];
+        $possibilities[0]->setCookie(SetCookie::fromString($this->config->cookie->string));
+
+        foreach ($possibilities as $cookieData) {
+            $this->assertConfiguration($cookieData);
+        }
     }
 
     public function testCookieInjection()
     {
         $stack = HandlerStack::create();
-
-        $middleware = new CookieAuth($this->config['uri'],
-            $this->config['fields'], $this->config['method'],
-            $this->config['cookies']);
-        $stack->push($middleware);
+        $stack->push($this->configuredInstance);
 
         $container = [];
         $history   = Middleware::history($container);
@@ -60,130 +88,154 @@ class CookieAuthTest extends \PHPUnit_Framework_TestCase
             'handler' => $stack
         ]);
 
-        $client->post('http://httpbin.org/post',
+        $client->post(
+            'http://httpbin.org/post',
             [
-            'auth' => 'cookie',
-            'form_params' => [
-                'foo' => [
-                    'baz' => ['bar'],
-                    'bam' => [null, true, false]
+                'auth' => 'cookie',
+                'form_params' => [
+                    'foo' => [
+                        'baz' => ['bar'],
+                        'bam' => [null, true, false]
+                    ]
                 ]
             ]
-        ]);
+        );
 
-        /* @var \GuzzleHttp\Psr7\Request $request */
+        /** @var \GuzzleHttp\Psr7\Request */
         $request = $container[0]['request'];
-        //$request instanceof \GuzzleHttp\Psr7\Request;
 
         $this->assertTrue($request->hasHeader('Cookie'));
 
         $cookieHeader = $request->getHeader('Cookie');
         $cookieHeader = $cookieHeader[0];
 
-        $this->assertEquals(substr($this->config['cookies'], 0, 19),
-            $cookieHeader);
+        $this->assertEquals(
+            $this->getCookieNameValuePair(),
+            $cookieHeader
+        );
     }
 
     public function testOnBeforeSend()
     {
         // mock request
-        $rq = new Request('GET', $this->config['uri']);
-
-        // middleware
-        $m = new CookieAuth($this->config['uri'], $this->config['fields'],
-            $this->config['method'], $this->config['cookies']);
+        $rq = new Request('GET', $this->config->uri);
 
         // Access protected fuction
-        $class  = new \ReflectionClass($m);
+        $class  = new \ReflectionClass($this->configuredInstance);
         $method = $class->getMethod('onBeforeSend');
         $method->setAccessible(true);
 
-        $options = array();
-        $result  = $method->invokeArgs($m, array($rq, &$options));
+        $options = [];
+        $result  = $method->invokeArgs($this->configuredInstance, [$rq, &$options]);
 
-        $this->assertInstanceOf('\\Psr\\Http\\Message\\RequestInterface',
-            $result);
+        $this->assertInstanceOf(
+            \Psr\Http\Message\RequestInterface::class,
+            $result
+        );
         $this->assertTrue($result->hasHeader('Cookie'));
 
         $cookieHeader = $result->getHeader('Cookie');
         $cookieHeader = $cookieHeader[0];
 
-        $this->assertEquals(substr($this->config['cookies'], 0, 19),
-            $cookieHeader);
+        $this->assertEquals(
+            $this->getCookieNameValuePair(),
+            $cookieHeader
+        );
     }
 
     public function testOnReceive()
     {
         // mock request
-        $request = new Request('GET', $this->config['uri']);
+        $request = new Request('GET', $this->config->uri);
 
         // mock response
-        $response = new Response(200,
+        $response = new Response(
+            200,
             [
-            'Cookie' => SetCookie::fromString($this->config['cookies'])
-            ], null);
+                'Cookie' => $this->config->cookie->data->__toString()
+            ],
+            null
+        );
 
         // middleware
-        $m = new CookieAuth($this->config['uri'], $this->config['fields'],
-            $this->config['method']);
+        $m = new CookieAuth(
+            $this->config->uri,
+            $this->config->fields,
+            $this->config->method
+        );
 
         $result = $m->onReceive($request, $response);
 
-        $this->assertInstanceOf('\\Psr\\Http\\Message\\ResponseInterface',
-            $result);
+        $this->assertInstanceOf(
+            \Psr\Http\Message\ResponseInterface::class,
+            $result
+        );
         $this->assertTrue($result->hasHeader('Cookie'));
 
         $cookieHeader = $result->getHeader('Cookie');
         $cookieHeader = $cookieHeader[0];
 
-        $this->assertEquals($this->config['cookies'], $cookieHeader);
+        $this->assertEquals($this->config->cookie->string, $cookieHeader);
+
+        $cookieJar = $this->getCookieJarProperty();
+        $this->assertInstanceOf(CookieJar::class, $cookieJar);
+
+        $cookieArr = $cookieJar->toArray();
+        $cookie    = reset($cookieArr);
+
+        $this->assertArrayHasKey('Name', $cookie);
+        $this->assertArrayHasKey('Value', $cookie);
+        $this->assertEquals($cookie['Name'], $this->config->cookie->Name);
+        $this->assertEquals($cookie['Value'], $this->config->cookie->Value);
     }
 
     public function testInvoke()
     {
         // mock request
-        $request = new Request('GET', $this->config['uri']);
+        $request = new Request('GET', $this->config->uri);
 
         // middleware
-        $m = new CookieAuth($this->config['uri'], $this->config['fields'],
-            $this->config['method'], $this->config['cookies']);
+        $m = $this->configuredInstance;
 
+        /** @var \GuzzleHttp\Psr7\Request */
         $newRequest = null;
-        $callable   = $m(function($request, $options) use (&$newRequest) {
+        $callable   = $m(function ($request, $options) use (&$newRequest) {
             $newRequest = $request;
             return new Promise();
         });
 
         $this->assertTrue(is_callable($callable));
 
-        $options = array();
-        $result  = $callable($request, $options);
+        $options = [];
+        $callable($request, $options);
 
         $this->assertFalse($newRequest->hasHeader('Cookie'));
 
 
-        $options = array('auth' => 'cookie');
-        $result  = $callable($request, $options);
+        $options = ['auth' => 'cookie'];
+        $callable($request, $options);
 
         $this->assertTrue($newRequest->hasHeader('Cookie'));
 
         $cookieHeader = $newRequest->getHeader('Cookie');
         $cookieHeader = $cookieHeader[0];
 
-        $this->assertEquals(substr($this->config['cookies'], 0, 19),
-            $cookieHeader);
+        $this->assertEquals(
+            $this->getCookieNameValuePair(),
+            $cookieHeader
+        );
     }
 
     public function testObtainCookies()
     {
         $uri       = 'http://httpbin.org/cookies/set';
         $urlMethod = 'GET';
-        $fields    = array(
-            'username' => 'user',
-            'password' => 'pass',
+        $fields    = [
+            'username'     => 'user',
+            'password'     => 'pass',
             'sessionToken' => 'abc123',
-        );
-        $options = array();
+        ];
+        $options = [];
 
         // middleware
         $m = new CookieAuth($uri, $fields, $urlMethod);
@@ -193,11 +245,10 @@ class CookieAuthTest extends \PHPUnit_Framework_TestCase
         $method = $class->getMethod('obtainCookies');
         $method->setAccessible(true);
 
-        $method->invokeArgs($m, array(&$options));
+        $method->invokeArgs($m, [&$options]);
 
-        $property  = $class->getProperty('coockieJar');
-        $property->setAccessible(true);
-        $cookieJar = $property->getValue($m);
+        $cookieJar = $this->getCookieJarProperty($m);
+        $this->assertInstanceOf(CookieJar::class, $cookieJar);
 
         $cookieArr = $cookieJar->toArray();
 
@@ -207,6 +258,71 @@ class CookieAuthTest extends \PHPUnit_Framework_TestCase
             $this->assertArrayHasKey('Name', $cookie);
             $this->assertArrayHasKey('Value', $cookie);
             $this->assertEquals($fieldValue, $cookie['Value']);
-        } while (($fieldValue = next($fields)) && ($cookie     = next($cookieArr)));
+        } while (
+            ($fieldValue = next($fields)) &&
+            ($cookie     = next($cookieArr))
+        );
+    }
+
+    /**
+     * @param CookieAuth $instance
+     * @return CookieJar
+     */
+    private function getCookieJarProperty($instance = null)
+    {
+        $instance = !empty($instance) ? $instance : $this->configuredInstance;
+        $reflection = new \ReflectionClass($instance);
+
+        $property = $reflection->getProperty('cookieJar');
+        $property->setAccessible(true);
+
+        return $property->getValue($instance);
+    }
+
+    /**
+     * @return string
+     */
+    private function getCookieNameValuePair()
+    {
+        return $this->config->cookie->parts[0];
+    }
+
+    /**
+     * @param \Traversable|string|string[]|SetCookie|SetCookie[]|CookieJarInterface|null $cookies
+     * @return CookieAuth
+     */
+    private function getNewInstance($cookies = null): CookieAuth
+    {
+        return new CookieAuth(
+            $this->config->uri,
+            $this->config->fields,
+            $this->config->method,
+            $cookies
+        );
+    }
+
+    /**
+     * @param \Traversable|string|string[]|SetCookie|SetCookie[]|CookieJarInterface|null $cookieData
+     * @return void
+     */
+    private function assertConfiguration($cookieData)
+    {
+        $instance = $this->getNewInstance($cookieData);
+
+        // Access the config object
+        $class    = new \ReflectionClass($instance);
+        $property = $class->getProperty('config');
+        $property->setAccessible(true);
+        $config   = $property->getValue($instance);
+
+        $cookieJar = $this->getCookieJarProperty($instance);
+
+        $expectedCookie = is_null($cookieData) ? [] : [$this->config->cookie->data->toArray()];
+
+        $this->assertEquals($this->config->uri, $config['uri']);
+        $this->assertEquals($this->config->fields, $config['fields']);
+        $this->assertEquals($this->config->method, $config['method']);
+        $this->assertInstanceOf(CookieJar::class, $cookieJar);
+        $this->assertEquals($expectedCookie, $cookieJar->toArray());
     }
 }

@@ -19,6 +19,6 @@
         "phpunit/phpunit": "~4.0"
     },
     "autoload": {
-        "psr-4": { "gomes81\\GuzzleHttp\\Subscriber\\": "src" }
+        "psr-4": { "Gomes81\\GuzzleHttp\\Subscriber\\": "src" }
     }
 }
